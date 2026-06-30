@@ -1,0 +1,15 @@
+name = "s-textpaste"
+main = "src/index.ts"
+compatibility_date = "2025-06-30"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "s-textpaste-db"
+database_id = "YOUR_DATABASE_ID_HERE"
+
+[assets]
+directory = "./public"
+
+[observability]
+enabled = true

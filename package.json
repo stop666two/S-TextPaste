@@ -2,14 +2,13 @@
   "name": "s-textpaste",
   "version": "1.0.0",
   "private": true,
-  "description": "Zero-trust end-to-end encrypted text sharing with post-quantum triple-envelope encryption",
+  "description": "Zero-trust E2E encrypted text sharing with triple-envelope PQ encryption",
   "scripts": {
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "node worker/server.js",
     "build": "cd frontend && npm install && npm run build",
     "deploy": "npm run build && wrangler deploy",
-    "db:create": "wrangler d1 create s-textpaste-db",
-    "postinstall": "cd frontend && npm install"
+    "db:create": "wrangler d1 create s-textpaste-db"
   },
   "dependencies": {
     "hono": "^4.6.12"

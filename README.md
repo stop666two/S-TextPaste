@@ -1,6 +1,6 @@
 # S-TextPaste
 
-绝密级零信任端到端加密文本分享 — Zero-trust E2E encrypted text sharing with triple-envelope post-quantum encryption.
+> 绝密级零信任端到端加密文本分享 · Triple-Envelope Post-Quantum Encryption
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/stop666two/S-TextPaste)
 
@@ -8,52 +8,23 @@
 
 ## 一键部署
 
-点击上方按钮或使用 GitHub Actions。
+点击上方按钮，Cloudflare 自动：
+1. Fork 仓库 → 安装依赖 → 构建前端
+2. 引导创建 D1 数据库 → 自动填入配置
+3. 部署 Worker → 分配 `*.workers.dev` 域名
 
-### GitHub Actions 部署
-
-1. Fork 本仓库
-2. 在 Settings → Secrets and variables → Actions 中添加：
-   - `CLOUDFLARE_API_TOKEN` — Workers API Token
-   - `CLOUDFLARE_ACCOUNT_ID` — Cloudflare Account ID
-3. 在 `wrangler.toml` 中填入 D1 database_id
-4. Push 到 main 分支，自动部署
-
-### D1 数据库
-
-```bash
-npx wrangler d1 create s-textpaste-db
-# 将返回的 database_id 填入 wrangler.toml
-```
-
----
-
-## 特性
-
-- **极限加密**：所有加解密在浏览器完成，服务器只收发密文
-- **强制密码**：创建粘贴必须设置密码，SHA-256 + MD5 复杂链式 KDF
-- **后量子加密**：三重包络 AES-256-GCM，两个 1024-bit 独立派生密钥
-- **HMAC 完整性校验**：全载荷 HMAC-SHA-256，防篡改
-- **阅后即焚**：解密成功后服务器立即删除
-- **密码锁定**：连续 5 次错误后拒绝访问
-- **过期时间**：1h / 24h / 7d / 30d / 永久
-- **暗黑模式**：自动检测系统主题
-- **中英双语**：界面完整翻译
-- **Markdown 全功能**：CodeMirror 6 + 实时预览 + GFM + Mermaid + KaTeX + 代码高亮
-- **安全性仪表盘**：解密页展示加密算法、密钥强度、量子安全状态
-- **32 字符随机 ID**：64^32 组合空间，防暴力破解
-- **速率限制**：每 IP 30 次/分钟，HTTP 429
+部署后即可使用。D1 数据库在部署向导中自动创建。
 
 ---
 
 ## 本地开发
 
 ```bash
-# 终端 1 — 后端 API
-cd worker && node server.js     # http://localhost:8787
+# 终端 1 — 后端 API 模拟
+node worker/server.js                    # http://localhost:8787
 
 # 终端 2 — 前端
-cd frontend && npm install && npm run dev   # http://localhost:3000
+cd frontend && npm install && npm run dev # http://localhost:3000
 ```
 
 ---
@@ -61,62 +32,17 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
 ## 加密架构
 
 ```
-密码 ──→ derive512(12轮链式SHA-256⊕MD5)    → 512-bit 基础密钥
-     ──→ derive1024A(24轮链式SHA→MD5)      → 1024-bit PQ密钥A
-     ──→ derive1024B(24轮链式MD5→SHA)      → 1024-bit PQ密钥B
-     ──→ deriveHMAC(7轮独立链式迭代)        → HMAC 完整性密钥
+密码 ──→ derive512 (12轮 SHA-256⊕MD5 链式)          = 512-bit  基础密钥
+     ──→ derive1024A (24轮 SHA→MD5 链式)             = 1024-bit PQ密钥A
+     ──→ derive1024B (24轮 MD5→SHA 链式, 完全逆向)   = 1024-bit PQ密钥B
+     ──→ deriveHMAC (7轮 独立链式)                    = 256-bit  HMAC密钥
 
-明文 → DEK随机 → AES-GCM → KeyA → AES-GCM → KeyB → AES-GCM → encrypted_payload
-                                                     ↓
-                                          HMAC-SHA-256(全部字段) → 防篡改
+明文 → 随机DEK(AES-GCM) → KeyA(AES-GCM) → KeyB(AES-GCM) → encrypted_payload
+                                                              ↓
+                                               HMAC-SHA-256(全载荷) = 防篡改
 ```
 
-每一轮 KDF 同时使用 SHA-256 和 MD5，链式迭代，不同密钥完全不同的推导路径。
-
----
-
-## 数据流
-
-```
-浏览器                          Cloudflare Workers            D1
-  │                                    │                      │
-  ├─ 加密(Web Crypto API) ────────────►│                      │
-  │  POST /api/paste {encrypted_payload}├─────────────────────►│
-  │                                    │                      │
-  │◄─────── {id, delete_token} ────────┤                      │
-  │                                    │                      │
-  │  GET /api/paste/:id ──────────────►│                      │
-  │                                    ├─── SELECT ──────────►│
-  │◄────── {encrypted_payload} ────────┤                      │
-  │                                    │                      │
-  ├─ 解密(Web Crypto API) ─────────────┤                      │
-  │                                    │                      │
-```
-
----
-
-## 项目结构
-
-```
-├── src/                    # Worker 源码
-│   ├── index.ts            # Hono 入口 (API + 静态文件 + SPA)
-│   ├── routes/api.ts       # REST API (/paste CRUD)
-│   ├── db/pastes.ts        # D1 数据库操作
-│   └── utils/crypto.ts     # 服务端工具
-├── frontend/               # React 前端
-│   ├── src/
-│   │   ├── crypto.ts       # 全部加密解密逻辑
-│   │   ├── pages/          # CreatePage / ReadPage / ViewPage
-│   │   ├── components/     # MarkdownEditor / SecurityDashboard / Layout
-│   │   ├── i18n/           # 中英文翻译
-│   │   └── api.ts          # API 客户端
-│   └── vite.config.ts
-├── worker/
-│   └── server.js           # 本地开发 API 模拟
-├── scripts/                # 构建工具
-├── wrangler.toml           # Cloudflare Workers 配置
-└── package.json
-```
+每一轮同时使用 SHA-256 和 MD5，链式迭代，三个密钥完全不同的推导路径。
 
 ---
 
@@ -129,20 +55,30 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
 | POST | `/api/paste/:id/view` | 记录查看 |
 | DELETE | `/api/paste/:id` | 删除 (需 `X-Delete-Token`) |
 
+> GET 响应仅返回 `encrypted_payload` 和生命周期字段，salt / mode / hint 全部嵌入密文内。
+
+---
+
+## 项目结构
+
+```
+├── src/                       # Worker 源码 (API)
+│   ├── index.ts               # Hono 入口
+│   └── routes/api.ts          # REST API (D1)
+├── frontend/                  # React 前端
+│   ├── src/crypto.ts          # 全部加密逻辑
+│   ├── pages/                 # CreatePage / ReadPage / ViewPage
+│   ├── components/            # Editor / Dashboard / Layout
+│   └── i18n/                  # 中/English
+├── worker/server.js           # 本地 API 模拟
+├── wrangler.toml              # Cloudflare Workers 配置
+└── package.json
+```
+
 ---
 
 ## 安全
 
-- AES-256-GCM 认证加密，防篡改
-- HMAC-SHA-256 全载荷校验
-- CSP `default-src 'self'`
-- HTTPS 强制 (Cloudflare)
-- 32 字符随机 ID (64^32)
-- 速率限制 30/min/IP
-- 删除令牌 SHA-256 哈希存储
-
----
-
-## 技术栈
-
-React 18 · TypeScript · Vite · CodeMirror 6 · marked · Mermaid · KaTeX · highlight.js · DOMPurify · Hono · Cloudflare Workers · D1
+- AES-256-GCM · HMAC-SHA-256 · CSP · HTTPS
+- 32字符随机ID · 速率限制 · 删除令牌哈希
+- content 不在 URL 中 · React Router state 内存传递

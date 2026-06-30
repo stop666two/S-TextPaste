@@ -1,7 +1,7 @@
 # S-TextPaste
 
-> 绝密级 · 零信任 · 端到端加密文本分享  
-> Triple-Envelope Post-Quantum Encryption
+> 零信任端到端加密，量子时代亦不可破。  
+> Zero-trust E2E encryption, unbreakable even in the quantum era.
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/stop666two/S-TextPaste)
 
@@ -225,6 +225,16 @@ Base: `https://<your-domain>`
 | 后端框架 | Hono 4 |
 | 数据库 | Cloudflare D1 |
 | 部署 | Wrangler CLI |
+
+---
+
+## 免责声明
+
+本服务按"现状"提供。所有加密操作在用户浏览器中完成，服务端无法解密或恢复数据。用户须自行保管密码——密码丢失则数据永久不可恢复。
+
+禁止使用本服务传播违法内容。开发者不对因使用本服务产生的任何损失承担责任。
+
+首次使用时会显示完整法律条款。
 
 ---
 

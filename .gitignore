@@ -1,6 +1,5 @@
-﻿# Node modules
-node_modules/
+﻿node_modules/
 dist/
+worker/public/
 .DS_Store
 *.log
-worker/public/

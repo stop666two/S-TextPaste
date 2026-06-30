@@ -1,5 +1,5 @@
 name = "s-textpaste"
-main = "worker/src/index.ts"
+main = "src/index.ts"
 compatibility_date = "2025-06-30"
 compatibility_flags = ["nodejs_compat"]
 
@@ -8,7 +8,7 @@ binding = "DB"
 database_name = "s-textpaste-db"
 
 [assets]
-directory = "./worker/public"
+directory = "./frontend/dist"
 
 [observability]
 enabled = true

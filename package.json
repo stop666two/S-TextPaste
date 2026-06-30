@@ -6,12 +6,16 @@
   "scripts": {
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "node worker/server.js",
-    "build": "cd frontend && npm install && npm run build && node ../scripts/copy-build.js",
+    "build": "cd frontend && npm install && npm run build",
     "deploy": "npm run build && wrangler deploy",
     "db:create": "wrangler d1 create s-textpaste-db",
     "postinstall": "cd frontend && npm install"
   },
+  "dependencies": {
+    "hono": "^4.6.12"
+  },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250608.0",
     "wrangler": "^3.107.0"
   }
 }

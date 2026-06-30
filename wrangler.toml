@@ -6,9 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "s-textpaste-db"
+database_id = ""
 
 [assets]
-directory = "./frontend/dist"
+directory = "frontend/dist"
 
 [observability]
 enabled = true

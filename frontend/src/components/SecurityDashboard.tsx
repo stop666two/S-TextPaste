@@ -1,13 +1,19 @@
 import { base64ToUtf8 } from '../crypto'
 import { useI18n } from '../i18n/context'
 
+function parsePayload(b64: string): any {
+  try { return JSON.parse(base64ToUtf8(b64)) }
+  catch { return {} }
+}
+
 export default function SecurityDashboard({ pasteData }: { pasteData: any }) {
   const { t } = useI18n()
-  if (!pasteData) return null
+  if (!pasteData || !pasteData.encrypted_payload) return null
 
-  const modeRaw = pasteData.mode || 'unknown'
+  const p = parsePayload(pasteData.encrypted_payload)
+  const modeRaw = p.m || 'unknown'
   const modeName = modeRaw === 'password' ? t('passwordMode') : modeRaw === 'symmetric' ? t('symmetricMode') : modeRaw === 'asymmetric' ? t('asymmetricMode') : modeRaw
-  const algorithm = extractAlgorithm(pasteData.encrypted_payload)
+  const algorithm = p.a || 'AES-256-GCM'
   const quantumSafe = algorithm.includes('PQ') || algorithm.includes('TripleEnvelope')
   const keyStrength = quantumSafe ? t('maximumSecure') : t('secure')
 
@@ -24,9 +30,4 @@ export default function SecurityDashboard({ pasteData }: { pasteData: any }) {
       </div>
     </div>
   )
-}
-
-function extractAlgorithm(payloadB64: string): string {
-  try { const p = JSON.parse(base64ToUtf8(payloadB64)); return p.a || 'AES-256-GCM' }
-  catch { return 'AES-256-GCM' }
 }

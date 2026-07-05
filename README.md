@@ -134,8 +134,6 @@ encrypted_payload
 
 ## API 文档
 
-Base: `https://<your-domain>`
-
 ### POST `/api/paste` — 创建粘贴
 
 **请求**:

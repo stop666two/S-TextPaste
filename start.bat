@@ -1,69 +1,56 @@
 @echo off
-title S-TextPaste 本地开发服务器
-chcp 65001 >nul
+title S-TextPaste Dev Server
+chcp 65001 >nul 2>&1
 
-echo ╔══════════════════════════════════════╗
-echo ║     S-TextPaste 本地开发启动脚本     ║
-╚══════════════════════════════════════╝
+echo ========================================
+echo   S-TextPaste Local Dev Server
+echo ========================================
 echo.
 
-:: 检查 Node.js
+:: Check Node.js
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 未找到 Node.js，请先安装：https://nodejs.org
+    echo [ERROR] Node.js not found. Install from https://nodejs.org
     pause
     exit /b 1
 )
 
-:: 检查后端端口
-netstat -ano | findstr ":8787 " >nul
-if %errorlevel% equ 0 (
-    echo [警告] 端口 8787 已被占用，请先关闭占用程序
-)
-
-:: 检查前端端口
-netstat -ano | findstr ":3000 " >nul
-if %errorlevel% equ 0 (
-    echo [警告] 端口 3000 已被占用，请先关闭占用程序
-)
-
-:: 安装前端依赖（如需要）
+:: Install frontend deps if needed
 if not exist "frontend\node_modules" (
-    echo [1/3] 安装前端依赖...
-    cd frontend && npm install --silent && cd ..
+    echo [1] Installing frontend dependencies...
+    cd frontend
+    call npm install --silent
+    cd ..
 )
 
-:: 启动后端 API
-echo [1/3] 启动后端 API (http://localhost:8787)
-start "S-TextPaste-Backend" cmd /c "node worker\server.js"
+:: Start backend API
+echo [1] Starting backend API on http://localhost:8787
+start "s-tp-backend" cmd /c "node worker\server.js"
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to start backend
+    pause
+    exit /b 1
+)
 timeout /t 2 /nobreak >nul
 
-:: 启动前端开发服务器
-echo [2/3] 启动前端开发服务器 (http://localhost:3000)
-start "S-TextPaste-Frontend" cmd /c "cd frontend && npx vite --port 3000"
+:: Start frontend dev server
+echo [2] Starting frontend on http://localhost:3000
+start "s-tp-frontend" cmd /c "cd /d frontend && npx vite --port 3000 --host"
 timeout /t 3 /nobreak >nul
 
-:: 验证
-echo [3/3] 验证服务状态...
-curl -s -o nul -w "  后端 API: %%{http_code}\n" http://localhost:8787/health
-curl -s -o nul -w "  前端页面: %%{http_code}\n" http://localhost:3000
-
 echo.
-echo ╔══════════════════════════════════════╗
-echo ║  启动完成！                           ║
-║                                      ║
-echo ║  前端: http://localhost:3000           ║
-echo ║  后端: http://localhost:8787           ║
-║                                      ║
-echo ║  按任意键关闭所有服务...               ║
-╚══════════════════════════════════════╝
+echo ========================================
+echo   Servers started
+echo   Frontend: http://localhost:3000
+echo   Backend:  http://localhost:8787
+echo ========================================
 echo.
-
+echo Press any key to stop all servers...
 pause >nul
 
-:: 关闭启动的进程
-echo 正在关闭服务...
-taskkill /f /fi "WINDOWTITLE eq S-TextPaste-Backend" >nul 2>&1
-taskkill /f /fi "WINDOWTITLE eq S-TextPaste-Frontend" >nul 2>&1
-echo 服务已关闭。
+:: Cleanup
+echo Stopping servers...
+taskkill /fi "WINDOWTITLE eq s-tp-backend" >nul 2>&1
+taskkill /fi "WINDOWTITLE eq s-tp-frontend" >nul 2>&1
+echo Done.
 timeout /t 2 /nobreak >nul

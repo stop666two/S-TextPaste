@@ -25,41 +25,30 @@
 
 - Node.js 18+
 - 拥有 [Cloudflare 账号](https://dash.cloudflare.com)
-- 已登录 Wrangler（`npx wrangler login`）
 
-### 方式一：全自动一键部署（推荐）
+### 一键部署（推荐）
 
-一行命令完成全部流程（创建 D1 → 构建 → 部署）：
-
-```bash
-npx wrangler login                # 首次需登录 Cloudflare
-npx wrangler d1 create s-textpaste-db  # 创建数据库（仅首次）
-node scripts/deploy.js            # 自动构建 + 部署
-```
-
-### 方式二：手动分步部署
+一条命令完成全部流程：
 
 ```bash
-# 1. 安装依赖
-npm install
-
-# 2. 构建前端
-npm run build
-
-# 3. 部署到 Cloudflare Workers
-npm run deploy
+npx wrangler login              # 首次使用需登录（仅一次）
+npm run deploy                  # 自动检查/创建 D1 + 构建 + 部署
 ```
 
-> `npm run deploy` 会自动创建 D1 数据库绑定（如未配置），设置 `database_id`，构建前端并发布。
+`npm run deploy` 会自动执行以下操作：
+1. **检查登录** → 未登录则提示登录
+2. **检查 D1 数据库** → 有同名库自动连接，无则自动创建并写入配置
+3. **检查 Worker** → 已存在同名 Worker 自动覆盖
+4. **安装依赖** → 自动安装前端依赖
+5. **构建前端** → TypeScript 检查 + Vite 生产构建
+6. **部署** → 标准 `wrangler deploy` 发布到 Cloudflare Workers
 
-### D1 数据库设置（可选）
+### 分步操作（可选）
 
-部署后如需添加 D1 持久化：
-
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages
-2. 选择 `s-textpaste` → 设置 → **D1 Database Bindings**
-3. 变量名：`DB`，选择 `s-textpaste-db`
-4. 或执行 `node scripts/setup-d1.js` 自动检测
+```bash
+npm run build                   # 仅构建前端
+node scripts/setup-d1.js        # 仅配置 D1 数据库
+```
 
 ## 本地开发
 

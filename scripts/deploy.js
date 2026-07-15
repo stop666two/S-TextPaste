@@ -18,8 +18,11 @@ function run(cmd, opts = {}) {
   try {
     const out = execSync(cmd, { cwd, stdio, encoding: 'utf-8', timeout: opts.timeout || 60000 })
     return { ok: true, out: (out || '').trim() }
-  } catch (e: any) {
-    if (opts.silent) return { ok: false, out: e.stdout || '', err: e.stderr || '' }
+  } catch (e) {
+    if (opts.silent) {
+      const err = e
+      return { ok: false, out: err.stdout || '', err: err.stderr || '' }
+    }
     throw e
   }
 }
@@ -99,7 +102,7 @@ if (dbId) {
     try {
       const dbs = JSON.parse(list.out)
       const arr = Array.isArray(dbs) ? dbs : (dbs.result || [])
-      existingDb = arr.find((d: any) => d.name === DB_NAME)
+      existingDb = arr.find(d => d.name === DB_NAME)
     } catch { /* ignore */ }
   }
 

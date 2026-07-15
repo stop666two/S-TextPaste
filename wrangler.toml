@@ -1,7 +1,7 @@
 name = "s-textpaste"
 main = "src/index.ts"
 compatibility_date = "2025-06-30"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat_v2"]
 
 [assets]
 directory = "frontend/dist"
@@ -10,7 +10,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "s-textpaste-db"
-database_id = ""
+database_id = "a34db08a-94f8-4618-8d7c-ebd93ef6eeb2"
 
 [observability]
 enabled = true

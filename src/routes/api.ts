@@ -71,18 +71,28 @@ function storage(c: any) {
   }
 }
 
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:8787',
-  'https://s-textpaste.pages.dev',
-  'https://s-textpaste.workers.dev',
-  'https://wbfx.stop666.dpdns.org',
-]
+// CORS 白名单：部署后请将你的自定义域名加入此列表
+// 方式一：在 Cloudflare Dashboard → s-textpaste → 设置 → 变量 → 添加环境变量
+//   CORS_ORIGINS = https://yourdomain.com,https://yourdomain2.com
+// 方式二：直接修改下方数组（提交到 git 前注意移除敏感域名）
+function getAllowedOrigins(env: any): string[] {
+  const defaults = [
+    'http://localhost:3000',
+    'http://localhost:8787',
+    'https://s-textpaste.pages.dev',
+    'https://s-textpaste.workers.dev',
+  ]
+  if (env?.CORS_ORIGINS) {
+    return [...defaults, ...env.CORS_ORIGINS.split(',').map((s: string) => s.trim())]
+  }
+  return defaults
+}
 
 app.use('/api/*', async (c, next) => {
   await next()
   const origin = c.req.header('Origin') || ''
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : 'null'
+  const allowed = getAllowedOrigins(c.env)
+  const allowOrigin = allowed.includes(origin) ? origin : 'null'
   c.header('Access-Control-Allow-Origin', allowOrigin)
   c.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
   c.header('Access-Control-Allow-Headers', 'Content-Type,X-Delete-Token')

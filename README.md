@@ -43,6 +43,21 @@ npm run deploy                  # 自动检查/创建 D1 + 构建 + 部署
 5. **构建前端** → TypeScript 检查 + Vite 生产构建
 6. **部署** → 标准 `wrangler deploy` 发布到 Cloudflare Workers
 
+> **部署后重要步骤：配置 CORS 白名单**
+>
+> 部署后必须将你的域名加入 CORS 白名单，否则 API 请求会被浏览器拦截。
+>
+> **方式一（推荐）：通过 Cloudflare Dashboard 环境变量**
+> 1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → `s-textpaste`
+> 2. 设置 → 变量 → 添加环境变量
+> 3. 变量名：`CORS_ORIGINS`，值：`https://你的域名.com`
+> 4. 多个域名用逗号分隔：`https://a.com,https://b.com`
+> 5. 保存并重新部署
+>
+> **方式二：直接在源码中修改**
+> - 编辑 `src/routes/api.ts` 第 74-82 行的 `getAllowedOrigins()` 函数
+> - 注意：提交到 git 前请移除敏感域名
+
 ### 分步操作（可选）
 
 ```bash

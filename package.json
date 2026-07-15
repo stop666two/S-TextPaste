@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
+    "deploy": "node scripts/deploy.js",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "node worker/server.js"
   },

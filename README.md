@@ -3,14 +3,11 @@
 > 零信任端到端加密文本分享服务。
 > 所有加解密在浏览器完成，服务端仅存储密文，无法读取明文。
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/stop666two/S-TextPaste)
-
 ---
 
 ## 目录
 
-- [一键部署](#一键部署)
-- [D1 数据库持久化](#d1-数据库持久化)
+- [CLI 一键部署](#cli-一键部署)
 - [本地开发](#本地开发)
 - [加密架构](#加密架构)
 - [安全特性](#安全特性)
@@ -20,18 +17,49 @@
 
 ---
 
-## 一键部署
+## CLI 一键部署
 
-点击上方按钮，Cloudflare 自动完成全部流程。部署后可立即使用（内存模式）。
+> Cloudflare 已逐步淘汰网页一键部署按钮，推荐使用 Wrangler CLI 部署。
 
-## D1 数据库持久化
+### 前置要求
 
-部署后添加 D1 以获得持久化存储：
+- Node.js 18+
+- 拥有 [Cloudflare 账号](https://dash.cloudflare.com)
+- 已登录 Wrangler（`npx wrangler login`）
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → `s-textpaste`
-2. 设置 → **D1 Database Bindings** → 添加绑定
-3. 变量名：`DB`，选择或创建 `s-textpaste-db`
-4. Worker 自动检测 D1，无需修改代码
+### 方式一：全自动一键部署（推荐）
+
+一行命令完成全部流程（创建 D1 → 构建 → 部署）：
+
+```bash
+npx wrangler login                # 首次需登录 Cloudflare
+npx wrangler d1 create s-textpaste-db  # 创建数据库（仅首次）
+node scripts/deploy.js            # 自动构建 + 部署
+```
+
+### 方式二：手动分步部署
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 构建前端
+npm run build
+
+# 3. 部署到 Cloudflare Workers
+npm run deploy
+```
+
+> `npm run deploy` 会自动创建 D1 数据库绑定（如未配置），设置 `database_id`，构建前端并发布。
+
+### D1 数据库设置（可选）
+
+部署后如需添加 D1 持久化：
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages
+2. 选择 `s-textpaste` → 设置 → **D1 Database Bindings**
+3. 变量名：`DB`，选择 `s-textpaste-db`
+4. 或执行 `node scripts/setup-d1.js` 自动检测
 
 ## 本地开发
 
@@ -46,9 +74,7 @@ cd frontend && npm install && npm run dev  # http://localhost:3000
 ### 生产构建
 
 ```bash
-npm install
 npm run build                      # 构建前端 → worker/public/
-npm run deploy                     # 部署到 Cloudflare Workers
 ```
 
 ---

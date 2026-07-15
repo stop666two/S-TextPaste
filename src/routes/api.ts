@@ -76,6 +76,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8787',
   'https://s-textpaste.pages.dev',
   'https://s-textpaste.workers.dev',
+  'https://wbfx.stop666.dpdns.org',
 ]
 
 app.use('/api/*', async (c, next) => {

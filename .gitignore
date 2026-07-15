@@ -7,6 +7,9 @@ worker/public/
 .env.local
 *.tsbuildinfo
 
+# Wrangler build cache
+.wrangler/
+
 # AI 规则文件 - 禁止提交版本控制
 AGENTS.md
 AGENTS.txt

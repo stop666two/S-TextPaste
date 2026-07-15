@@ -131,17 +131,21 @@ if (dbId) {
   }
 }
 
-// ---- Step 3: 检查 Worker 是否存在 ----
-console.log('[3/6] 检查 Worker 部署状态...\n')
-
-// 用 wrangler deploy --dry-run 不能检测是否存在，改用 wrangler tail --help 等方式
-// 直接用 wrangler versions list 或尝试部署（它会自动覆盖）
-const existingWorker = run(`npx wrangler deploy --dry-run 2>&1`, { silent: true })
-// 不依赖输出，直接部署时会自动覆盖
+// ---- Step 3: 安装根目录依赖 (hono, wrangler) ----
+console.log('[3/6] 安装项目依赖...\n')
+if (!fs.existsSync(path.join(ROOT, 'node_modules', 'hono'))) {
+  run('npm install --silent', { timeout: 120000 })
+} else {
+  console.log('  依赖已安装，跳过\n')
+}
 
 // ---- Step 4: 安装前端依赖 ----
 console.log('[4/6] 安装前端依赖...\n')
-run('cd frontend && npm install --silent', { timeout: 120000 })
+if (!fs.existsSync(path.join(ROOT, 'frontend', 'node_modules'))) {
+  run('npm install --silent', { cwd: path.join(ROOT, 'frontend'), timeout: 120000 })
+} else {
+  console.log('  依赖已安装，跳过\n')
+}
 
 // ---- Step 5: 构建前端 ----
 console.log('[5/6] 构建前端...\n')

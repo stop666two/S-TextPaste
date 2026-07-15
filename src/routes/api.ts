@@ -58,15 +58,22 @@ function storage(c: any) {
     }
   }
   let tableInit = false
+  async function initTable() {
+    if (tableInit) return
+    await db.prepare('CREATE TABLE IF NOT EXISTS pastes (id TEXT PRIMARY KEY, mode TEXT NOT NULL, salt TEXT, encrypted_payload TEXT NOT NULL, hint TEXT DEFAULT "", delete_token_hash TEXT NOT NULL, expires_at INTEGER, max_views INTEGER DEFAULT -1, view_count INTEGER DEFAULT 0, burn_after_read INTEGER DEFAULT 0, created_at INTEGER NOT NULL, pubkey_fingerprint TEXT)').run()
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_pastes_expires_at ON pastes(expires_at)').run()
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_pastes_created_at ON pastes(created_at)').run()
+    tableInit = true
+  }
   return {
-    async get(id: string) { return db.prepare('SELECT * FROM pastes WHERE id=?').bind(id).first() },
+    async get(id: string) { await initTable(); return db.prepare('SELECT * FROM pastes WHERE id=?').bind(id).first() },
     async put(r: any) {
-      if (!tableInit) { await db.prepare('CREATE TABLE IF NOT EXISTS pastes (id TEXT PRIMARY KEY, mode TEXT NOT NULL, salt TEXT, encrypted_payload TEXT NOT NULL, hint TEXT DEFAULT "", delete_token_hash TEXT NOT NULL, expires_at INTEGER, max_views INTEGER DEFAULT -1, view_count INTEGER DEFAULT 0, burn_after_read INTEGER DEFAULT 0, created_at INTEGER NOT NULL, pubkey_fingerprint TEXT)').run(); await db.prepare('CREATE INDEX IF NOT EXISTS idx_pastes_expires_at ON pastes(expires_at)').run(); tableInit = true }
+      await initTable()
       const ex = await db.prepare('SELECT id FROM pastes WHERE id=?').bind(r.id).first()
       if (ex) await db.prepare('UPDATE pastes SET mode=?,salt=?,encrypted_payload=?,hint=?,delete_token_hash=?,expires_at=?,max_views=?,view_count=?,burn_after_read=?,created_at=?,pubkey_fingerprint=? WHERE id=?').bind(r.mode,r.salt,r.encrypted_payload,r.hint,r.delete_token_hash,r.expires_at,r.max_views,r.view_count,r.burn_after_read,r.created_at,r.pubkey_fingerprint,r.id).run()
       else await db.prepare('INSERT INTO pastes (id,mode,salt,encrypted_payload,hint,delete_token_hash,expires_at,max_views,view_count,burn_after_read,created_at,pubkey_fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(r.id,r.mode,r.salt,r.encrypted_payload,r.hint,r.delete_token_hash,r.expires_at,r.max_views,r.view_count,r.burn_after_read,r.created_at,r.pubkey_fingerprint).run()
     },
-    async del(id: string) { await db.prepare('DELETE FROM pastes WHERE id=?').bind(id).run() },
+    async del(id: string) { await initTable(); await db.prepare('DELETE FROM pastes WHERE id=?').bind(id).run() },
     d1: true
   }
 }

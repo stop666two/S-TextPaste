@@ -108,9 +108,34 @@ if (dbId) {
 
   if (existingDb) {
     dbId = existingDb.uuid
+    // 验证已有数据库的表结构
+    console.log(`  → 发现已有数据库 ${DB_NAME} (ID: ${dbId})，验证表结构...`)
+    const check = run(`npx wrangler d1 execute ${DB_NAME} --command "SELECT name FROM sqlite_master WHERE type='table' AND name='pastes'" --json 2>&1`, { silent: true })
+    const hasTable = check.ok && check.out && (
+      check.out.includes('"name":"pastes"') || check.out.includes('"rows":[["pastes"') || check.out.includes('pastes')
+    )
+    if (!hasTable) {
+      console.log('  → 表结构不存在，正在初始化...')
+      const schemaPath = path.join(ROOT, 'worker', 'schema.sql')
+      if (fs.existsSync(schemaPath)) {
+        run(`npx wrangler d1 execute ${DB_NAME} --file="${schemaPath}" 2>&1`, { silent: false })
+      } else {
+        run(`npx wrangler d1 execute ${DB_NAME} --command="CREATE TABLE IF NOT EXISTS pastes (id TEXT PRIMARY KEY, mode TEXT NOT NULL, salt TEXT DEFAULT NULL, encrypted_payload TEXT NOT NULL, hint TEXT DEFAULT '', delete_token_hash TEXT NOT NULL, expires_at INTEGER, max_views INTEGER DEFAULT -1, view_count INTEGER DEFAULT 0, burn_after_read INTEGER DEFAULT 0, created_at INTEGER NOT NULL, pubkey_fingerprint TEXT); CREATE INDEX IF NOT EXISTS idx_pastes_expires_at ON pastes(expires_at); CREATE INDEX IF NOT EXISTS idx_pastes_created_at ON pastes(created_at);" 2>&1`, { silent: false })
+      }
+      // 验证表是否创建成功
+      const verify = run(`npx wrangler d1 execute ${DB_NAME} --command "SELECT COUNT(*) as cnt FROM pastes" --json 2>&1`, { silent: true })
+      if (verify.ok && verify.out) {
+        console.log('  ✓ 表结构初始化完成\n')
+      } else {
+        console.error('  ✗ 表结构初始化失败，请手动执行: wrangler d1 execute s-textpaste-db --file=worker/schema.sql')
+        process.exit(1)
+      }
+    } else {
+      console.log('  ✓ 表结构验证通过\n')
+    }
     toml = tomlSetDbId(toml, dbId)
     writeToml(toml)
-    console.log(`  ✓ 发现已有数据库 ${DB_NAME}，已自动连接 (ID: ${dbId})\n`)
+    console.log(`  ✓ 已连接数据库 ${DB_NAME} (ID: ${dbId})\n`)
   } else {
     console.log(`  ! 未找到数据库 ${DB_NAME}，正在创建...\n`)
     const created = run(`npx wrangler d1 create ${DB_NAME} 2>&1`, { silent: true })
@@ -128,6 +153,23 @@ if (dbId) {
     toml = tomlSetDbId(toml, dbId)
     writeToml(toml)
     console.log(`  ✓ 数据库 ${DB_NAME} 创建成功 (ID: ${dbId})\n`)
+
+    // 初始化表结构
+    console.log('  → 初始化表结构...')
+    const schemaPath = path.join(ROOT, 'worker', 'schema.sql')
+    if (fs.existsSync(schemaPath)) {
+      run(`npx wrangler d1 execute ${DB_NAME} --file="${schemaPath}" 2>&1`, { silent: false })
+    } else {
+      run(`npx wrangler d1 execute ${DB_NAME} --command="CREATE TABLE IF NOT EXISTS pastes (id TEXT PRIMARY KEY, mode TEXT NOT NULL, salt TEXT DEFAULT NULL, encrypted_payload TEXT NOT NULL, hint TEXT DEFAULT '', delete_token_hash TEXT NOT NULL, expires_at INTEGER, max_views INTEGER DEFAULT -1, view_count INTEGER DEFAULT 0, burn_after_read INTEGER DEFAULT 0, created_at INTEGER NOT NULL, pubkey_fingerprint TEXT); CREATE INDEX IF NOT EXISTS idx_pastes_expires_at ON pastes(expires_at); CREATE INDEX IF NOT EXISTS idx_pastes_created_at ON pastes(created_at);" 2>&1`, { silent: false })
+    }
+    // 验证表是否创建成功
+    const verify = run(`npx wrangler d1 execute ${DB_NAME} --command "SELECT COUNT(*) as cnt FROM pastes" --json 2>&1`, { silent: true })
+    if (verify.ok && verify.out) {
+      console.log('  ✓ 表结构初始化完成\n')
+    } else {
+      console.error('  ✗ 表结构初始化失败，请手动执行: wrangler d1 execute s-textpaste-db --file=worker/schema.sql')
+      process.exit(1)
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 # S-TextPaste
 
-> 零信任端到端加密，量子时代亦不可破。  
-> Zero-trust E2E encryption, unbreakable even in the quantum era.
+> 零信任端到端加密文本分享服务。
+> 所有加解密在浏览器完成，服务端仅存储密文，无法读取明文。
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/stop666two/S-TextPaste)
 
@@ -12,13 +12,11 @@
 - [一键部署](#一键部署)
 - [D1 数据库持久化](#d1-数据库持久化)
 - [本地开发](#本地开发)
-- [服务器部署](#服务器部署)
 - [加密架构](#加密架构)
 - [安全特性](#安全特性)
 - [API 文档](#api-文档)
 - [项目结构](#项目结构)
 - [技术栈](#技术栈)
-- [许可证](#许可证)
 
 ---
 
@@ -30,86 +28,75 @@
 
 部署后添加 D1 以获得持久化存储：
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → `s-textpaste-text`
-2. Settings → **D1 Database Bindings** → Add binding
-3. Variable: `DB`，选择或创建 `s-textpaste-db`
-4. 无需重新部署，Worker 自动检测并切换到 D1
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → `s-textpaste`
+2. 设置 → **D1 Database Bindings** → 添加绑定
+3. 变量名：`DB`，选择或创建 `s-textpaste-db`
+4. Worker 自动检测 D1，无需修改代码
 
 ## 本地开发
 
 ```bash
-# 终端 1 — 后端
-cd worker && node server.js          # http://localhost:8787
+# 终端 1 — 后端 API
+node worker/server.js              # http://localhost:8787
 
-# 终端 2 — 前端
+# 终端 2 — 前端开发服务器
 cd frontend && npm install && npm run dev  # http://localhost:3000
 ```
 
-## 服务器部署
+### 生产构建
 
-### Cloudflare Workers (推荐)
 ```bash
-git clone https://github.com/stop666two/S-TextPaste
-cd S-TextPaste
-npx wrangler d1 create s-textpaste-db    # 创建 D1
-# 编辑 wrangler.toml，填入 database_id
-npm install && npm run build && npx wrangler deploy
-```
-
-### 自建服务器
-```bash
-# 使用 Node.js 运行 worker/server.js
-node worker/server.js                    # API 在 :8787
-
-# 前端使用 Nginx 或直接 serve
-cd frontend && npm run build             # 输出到 dist/
-# 将 dist/ 部署到 Nginx，代理 /api 到 :8787
+npm install
+npm run build                      # 构建前端 → worker/public/
+npm run deploy                     # 部署到 Cloudflare Workers
 ```
 
 ---
 
 ## 加密架构
 
-### 密钥派生 (KDF)
+### 密钥派生 (PBKDF2-HMAC-SHA256)
+
+使用 **NIST 标准 PBKDF2**，通过浏览器原生 Web Crypto API 实现，无自定义密码学构造。
 
 ```
-密码 + 随机盐
+密码 + 随机盐 (32 字节)
     │
-    ├─→ derive512     [ SHA-256⊕MD5 链式 12 轮 ] = 512-bit  基础密钥
-    ├─→ derive1024A   [ SHA→MD5 链式 24 轮 ]     = 1024-bit PQ 密钥 A
-    ├─→ derive1024B   [ MD5→SHA 链式 24 轮 ]     = 1024-bit PQ 密钥 B
-    └─→ deriveHMAC    [ 独立链式 7 轮 ]           = 256-bit  HMAC 密钥
+    └─→ PBKDF2-HMAC-SHA256 (100,000 轮迭代)
+         │
+         ├─ salt          → 256-bit AES 密钥 (单信封模式)
+         ├─ salt+"env-A"  → 256-bit 第1层密钥 (双信封模式)
+         ├─ salt+"env-B"  → 256-bit 第2层密钥 (双信封模式)
+         └─ salt+"hmac"   → 256-bit HMAC 完整性密钥
 ```
 
-**每一轮同时使用 SHA-256 和 MD5**，XOR 交织，链式迭代。三个密钥**完全不同的推导路径**。
-
-### 加密流程
+### 单信封模式
 
 ```
 明文
-  │
-  ├─ [Layer 1] DEK(随机32字节) ──AES-256-GCM──→ ciphertext_L1
-  │
-  ├─ [Layer 2] PQ密钥A(1024bit) ──AES-256-GCM──→ ciphertext_L2
-  │
-  ├─ [Layer 3] PQ密钥B(1024bit) ──AES-256-GCM──→ ciphertext_L3
-  │
-  └─ HMAC-SHA-256(integrityKey, 全载荷字段) ────→ 防篡改标签
+  → PBKDF2 派生密钥 ──AES-256-GCM──→ 密文
+  → HMAC-SHA-256 全载荷签名           → 完整性标签
 ```
 
-### 解密流程
+### 双信封模式（推荐）
 
 ```
-encrypted_payload
-  │
-  ├─ 验证 HMAC (任何篡改 → 立即拒绝)
-  │
-  ├─ PQ密钥B 解密 → ciphertext_L2
-  ├─ PQ密钥A 解密 → DEK
-  └─ DEK 解密 → 明文
+明文
+  → DEK(随机32字节) ──AES-256-GCM──→ CT1
+  → 第1层密钥       ──AES-256-GCM──→ CT2 (加密 DEK)
+  → 第2层密钥       ──AES-256-GCM──→ CT3 (加密 CT2)
+  → HMAC-SHA-256 全载荷签名           → 完整性标签
 ```
 
-**错误密码 → HMAC 或 AES-GCM 认证失败 → 解密中止**
+两层独立派生的密钥包裹数据加密密钥 (DEK)，提供纵深防御。
+
+### 非对称模式
+
+```
+RSA-OAEP (2048-bit, SHA-256) 加密 DEK
+AES-256-GCM (DEK) 加密明文
+私钥在浏览器中生成并仅展示一次，用户须自行保存。
+```
 
 ---
 
@@ -117,18 +104,23 @@ encrypted_payload
 
 | 特性 | 实现 |
 |------|------|
-| 加密算法 | AES-256-GCM (认证加密) |
-| 完整性 | HMAC-SHA-256 全载荷校验 |
-| 密钥长度 | 512-bit 基础 + 1024-bit×2 PQ |
-| KDF 轮数 | 12 + 24 + 24 + 7 = 67 轮链式迭代 |
-| 传输安全 | HTTPS 强制 (Cloudflare) |
-| 内容安全策略 | `default-src 'self'` |
-| 链接爆破防护 | 32 字符随机 ID (64^32 组合空间) |
+| 加密算法 | AES-256-GCM（认证加密） |
+| 密钥派生 | PBKDF2-HMAC-SHA256（100,000 轮） |
+| 完整性 | HMAC-SHA-256 + 常数时间比较 |
+| 传输安全 | HTTPS + HSTS |
+| 内容安全策略 | `default-src 'self'; script-src 'self' 'unsafe-inline'` |
+| ID 空间 | 32 字符随机 (64^32 组合) |
 | 速率限制 | 30 次/分钟/IP |
-| 删除令牌 | SHA-256 哈希存储，不可逆 |
-| 密码锁定 | 连续 5 次错误后拒绝 |
-| 内容泄露 | React Router state 内存传递，不出现在 URL |
-| 载荷元数据 | salt/mode/hint 全部嵌入密文 |
+| 删除令牌 | SHA-256 哈希存储，常数时间验证 |
+| 请求超时 | 30 秒 (AbortController) |
+| 请求体限制 | 最大 5MB |
+| 内容安全 | DOMPurify 消毒所有渲染的 Markdown |
+| 内容隐私 | React Router state（内存传递），URL 不暴露明文 |
+| 元数据 | 全部嵌入加密载荷内部 |
+| 错误处理 | 全局 ErrorBoundary (React) + JSON 错误 (API) |
+| 无障碍 | WCAG 焦点指示器、aria-label、skip-link |
+| 暗色模式 | 系统检测 + 手动切换 + CSS 变量过渡 |
+| 过期清理 | Cron 每 6 小时（过期/浏览上限/阅后即焚孤立记录） |
 
 ---
 
@@ -136,16 +128,18 @@ encrypted_payload
 
 ### POST `/api/paste` — 创建粘贴
 
-**请求**:
+**请求：**
 ```json
 {
   "mode": "password",
   "encrypted_payload": "base64...",
-  "hint": "提示文字(可选)",
+  "hint": "可选提示文字",
+  "salt": "base64...",
   "expires_in": 3600000,
   "max_views": 5,
   "burn_after_read": 1,
-  "custom_id": "my-note"
+  "custom_id": "my-note",
+  "pubkey_fingerprint": "ab:cd:ef:..."
 }
 ```
 
@@ -154,13 +148,14 @@ encrypted_payload
 {
   "id": "abc123...",
   "delete_token": "hex...",
-  "storage": "memory"
+  "expires_at": 1710000000000,
+  "storage": "d1"
 }
 ```
 
 ### GET `/api/paste/:id` — 获取粘贴
 
-**返回**:
+**返回：**
 ```json
 {
   "encrypted_payload": "base64...",
@@ -168,15 +163,26 @@ encrypted_payload
   "view_count": 0,
   "max_views": -1,
   "burn_after_read": 0,
+  "created_at": 1710000000000,
   "storage": "d1"
 }
 ```
 
-> 仅返回加密载荷和生命周期字段。salt、mode、hint、algorithm 全部嵌入 `encrypted_payload` 内。
+salt、mode、hint、algorithm 全部嵌入 `encrypted_payload` 内部。
 
 ### POST `/api/paste/:id/view` — 记录查看
 
-触发计数和阅后即焚逻辑。
+触发浏览计数和阅后即焚逻辑。
+
+**返回：**
+```json
+{
+  "success": true,
+  "view_count": 1,
+  "burn_after_read": 0,
+  "max_views": -1
+}
+```
 
 ### DELETE `/api/paste/:id` — 删除粘贴
 
@@ -187,22 +193,34 @@ encrypted_payload
 ## 项目结构
 
 ```
-├── src/                         # Cloudflare Worker 源码
-│   ├── index.ts                 # Hono 入口 (API + SPA)
-│   └── routes/api.ts            # REST API (D1 双模存储)
-├── frontend/                    # React 18 前端
+├── src/                         # Cloudflare Worker
+│   ├── index.ts                 # Hono 入口 + 健康检查 + 错误处理
+│   └── routes/api.ts            # REST API (D1 + 内存双模存储)
+├── frontend/                    # React 18 + TypeScript
 │   ├── src/
-│   │   ├── crypto.ts            # 全部加密解密逻辑 (客户端)
-│   │   ├── pages/CreatePage.tsx # 创建页面
-│   │   ├── pages/ReadPage.tsx   # 解密页面
-│   │   ├── pages/ViewPage.tsx   # 查看页面
-│   │   ├── components/          # 编辑器、仪表盘、免责声明
+│   │   ├── crypto.ts            # 客户端加密 (PBKDF2 + AES-256-GCM)
+│   │   ├── api.ts               # 类型化 API 客户端 (含超时)
+│   │   ├── pages/
+│   │   │   ├── CreatePage.tsx   # 编辑器 + 加密配置 + 密码强度
+│   │   │   ├── ReadPage.tsx     # 解密表单 + 安全仪表盘
+│   │   │   └── ViewPage.tsx     # Markdown 渲染 + 删除面板
+│   │   ├── components/
+│   │   │   ├── Layout.tsx       # 应用外壳 + 暗色模式 + 国际化 + 无障碍
+│   │   │   ├── MarkdownEditor.tsx  # CodeMirror 6 + 实时预览
+│   │   │   ├── SecurityDashboard.tsx  # 算法/密钥/完整性展示
+│   │   │   ├── Disclaimer.tsx   # 法律免责声明弹窗
+│   │   │   ├── LanguageSwitch.tsx
+│   │   │   ├── MermaidRenderer.tsx
+│   │   │   ├── KaTeXRenderer.tsx
+│   │   │   └── ErrorBoundary.tsx
 │   │   ├── i18n/                # 中/英文翻译
-│   │   └── api.ts               # API 客户端
+│   │   └── styles.css           # 完整样式表 (含暗色主题)
 │   └── vite.config.ts
 ├── worker/
-│   └── server.js                # 本地开发 API 模拟
-├── scripts/                     # 构建工具
+│   ├── server.js                # 本地开发 API 服务器 (Node.js)
+│   ├── schema.sql               # D1 数据库表结构
+│   └── public/                  # 构建产物 (自动生成)
+├── scripts/                     # 构建与部署工具
 ├── wrangler.toml                # Workers 配置
 └── package.json
 ```
@@ -213,26 +231,29 @@ encrypted_payload
 
 | 层 | 技术 |
 |----|------|
-| 前端框架 | React 18 + TypeScript |
-| 构建 | Vite 5 |
+| 前端框架 | React 18 + TypeScript (严格模式) |
+| 构建工具 | Vite 5 (esbuild) |
 | 编辑器 | CodeMirror 6 |
 | Markdown | marked + highlight.js + Mermaid + KaTeX |
 | 安全过滤 | DOMPurify |
-| 加密 | Web Crypto API (浏览器原生) |
-| 后端运行时 | Cloudflare Workers |
-| 后端框架 | Hono 4 |
-| 数据库 | Cloudflare D1 |
+| 加密 | Web Crypto API (PBKDF2 + AES-256-GCM + RSA-OAEP) |
+| 运行时 | Cloudflare Workers |
+| 框架 | Hono 4 |
+| 数据库 | Cloudflare D1 (边缘 SQLite) |
 | 部署 | Wrangler CLI |
 
 ---
 
 ## 免责声明
 
-本服务按"现状"提供。所有加密操作在用户浏览器中完成，服务端无法解密或恢复数据。用户须自行保管密码——密码丢失则数据永久不可恢复。
+**S-TextPaste 完全免费开源**（MIT 许可证），严禁任何形式的倒卖、转售或收费分发。
 
-禁止使用本服务传播违法内容。开发者不对因使用本服务产生的任何损失承担责任。
-
-首次使用时会显示完整法律条款。
+**重要风险提示：**
+- 本程序按"现状"提供，可能存在未知漏洞（bug），**严禁存储重要数据或敏感信息**
+- **严禁长时间存储数据**，请在阅读后及时备份并删除
+- 开发者不对因使用本程序导致的任何**数据丢失、数据泄露、数据损坏或任何损失**承担责任
+- 您自行承担使用本服务的全部风险
+- 详细条款见首次使用时的免责声明弹窗
 
 ---
 

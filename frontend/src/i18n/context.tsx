@@ -22,14 +22,16 @@ const ctx = createContext<I18nContextType>({
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
-    const stored = localStorage.getItem('s-textpaste-lang')
-    if (stored === 'zh' || stored === 'en') return stored
-    return navigator.language.startsWith('zh') ? 'zh' : 'en'
+    try {
+      const stored = localStorage.getItem('s-textpaste-lang')
+      if (stored === 'zh' || stored === 'en') return stored
+    } catch { /* localStorage unavailable */ }
+    return navigator.language?.startsWith('zh') ? 'zh' : 'en'
   })
 
   const setLang = (l: Lang) => {
     setLangState(l)
-    localStorage.setItem('s-textpaste-lang', l)
+    try { localStorage.setItem('s-textpaste-lang', l) } catch { /* privacy mode */ }
   }
 
   const t = (key: keyof Translations): string => {

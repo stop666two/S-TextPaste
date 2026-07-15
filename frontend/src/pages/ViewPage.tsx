@@ -58,7 +58,7 @@ export default function ViewPage() {
         <div className="delete-section">
           <h4>{t('delete')}</h4>
           <p style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('deleteTokenHint')}</p>
-          <input type="password" className="delete-input" placeholder={t('deleteToken') + '...'} value={deleteToken} onChange={e => setDeleteToken(e.target.value)} />
+          <input type="text" className="delete-input" placeholder={t('deleteToken') + '...'} value={deleteToken} onChange={e => setDeleteToken(e.target.value)} autoComplete="off" />
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
             <button className="btn btn-danger" onClick={handleDelete} disabled={deleting || !deleteToken}>{deleting ? t('loading') : t('delete')}</button>
             <button className="btn btn-secondary" onClick={() => { setShowDelete(false); setDeleteToken(''); setDeleteError('') }}>{t('cancel')}</button>
@@ -89,13 +89,15 @@ function FullContentRenderer({ markdown }: { markdown: string }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([import('marked'), import('highlight.js'), import('katex'), import('mermaid')])
-      .then(([markedModule, hljsModule, katexModule, mermaidModule]) => {
+    Promise.all([import('marked'), import('highlight.js'), import('katex'), import('mermaid'), import('dompurify')])
+      .then(([markedModule, hljsModule, katexModule, mermaidModule, DOMPurifyModule]) => {
         if (cancelled) return
         const { marked, Renderer } = markedModule
         const hljs = hljsModule.default
         const katex = katexModule.default
-        mermaidModule.default.initialize({ startOnLoad: false, theme: 'default' })
+        const DOMPurify = DOMPurifyModule.default
+        const isDark = document.documentElement.classList.contains('dark')
+        mermaidModule.default.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' })
 
         const renderer = new Renderer()
         renderer.code = function({ text, lang }: { text: string; lang?: string }) {
@@ -108,9 +110,9 @@ function FullContentRenderer({ markdown }: { markdown: string }) {
         marked.setOptions({ gfm: true, breaks: true, renderer })
         let processed = markdown
           .replace(/\$\$(.+?)\$\$/gs, (_, m) => { try { return `<p class="katex-display">${katex.renderToString(m.trim(), { displayMode: true, throwOnError: false })}</p>` } catch { return `$$${m}$$` } })
-          .replace(/\$(.+?)\$/g, (_, m) => { try { return katex.renderToString(m, { throwOnError: false }) } catch { return `$${m}$` } })
+          .replace(/(?<!\d)\$(.+?)\$(?!\d)/g, (_, m) => { try { return katex.renderToString(m, { throwOnError: false }) } catch { return `$${m}$` } })
         const rendered = marked.parse(processed) as string
-        if (!cancelled) setHtml(rendered)
+        if (!cancelled) setHtml(DOMPurify.sanitize(rendered))
       }).catch(() => { if (!cancelled) setHtml('<p>Error rendering content</p>') })
     return () => { cancelled = true }
   }, [markdown])

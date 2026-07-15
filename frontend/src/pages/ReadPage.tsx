@@ -20,11 +20,12 @@ export default function ReadPage() {
   const [encryptedPayload, setEncryptedPayload] = useState('')
   const [hint, setHint] = useState('')
   const [payloadMeta, setPayloadMeta] = useState<any>(null)
+  const [loadingPaste, setLoadingPaste] = useState(true)
   const lockoutRef = useRef(0)
 
   useEffect(() => {
     setPassword(''); setSymmetricKey(''); setPrivateKey(''); setError(''); lockoutRef.current = 0; setLocked(false)
-    setHint(''); setMode(''); setEncryptedPayload(''); setPayloadMeta(null)
+    setHint(''); setMode(''); setEncryptedPayload(''); setPayloadMeta(null); setLoadingPaste(true)
     if (!safeId) return; loadPaste()
   }, [safeId])
 
@@ -32,17 +33,21 @@ export default function ReadPage() {
     try {
       const data = await getPaste(safeId)
       setEncryptedPayload(data.encrypted_payload)
-      if (data.expires_at && Date.now() > data.expires_at) { setError(t('pasteExpired')); return }
-      if (data.max_views >= 0 && (data.view_count || 0) >= data.max_views) { setError(t('maxViewsReached')); return }
+      if (data.expires_at && Date.now() > data.expires_at) { setError(t('pasteExpired')); setLoadingPaste(false); return }
+      if (data.max_views >= 0 && (data.view_count || 0) >= data.max_views) { setError(t('maxViewsReached')); setLoadingPaste(false); return }
 
       // Extract metadata from payload (salt, mode, hint, algorithm) without decrypting
       try {
-        const pp: EncryptedPayload = JSON.parse(base64ToUtf8(data.encrypted_payload))
+        const raw = base64ToUtf8(data.encrypted_payload)
+        if (!raw.startsWith('{')) throw new Error('Invalid payload format')
+        const pp: EncryptedPayload = JSON.parse(raw)
+        if (!pp.m || !pp.v) throw new Error('Invalid payload structure')
         setMode(pp.m || '')
         setHint(pp.t || '')
         setPayloadMeta({ encrypted_payload: data.encrypted_payload })
       } catch { /* invalid payload */ }
     } catch (err: any) { setError(err.message || t('pasteNotFound')) }
+    finally { setLoadingPaste(false) }
   }
 
   const handleDecrypt = useCallback(async () => {
@@ -76,17 +81,23 @@ export default function ReadPage() {
       <div className="decrypt-card">
         <h2>{t('readPaste')}</h2>
 
+        {loadingPaste ? (
+          <div className="loading">{t('loading')}</div>
+        ) : (
+          <>
         <SecurityDashboard pasteData={payloadMeta} />
 
         {hint && <div className="hint-box"><strong>{t('hint')}:</strong> {hint}</div>}
 
         {locked ? (<div className="error-message"><p>{error}</p><button className="btn btn-secondary" onClick={() => navigate('/create')}>{t('back')}</button></div>) : (<>
-          {mode === 'password' && (<div className="form-group"><label>{t('password')}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('decryptPassword')} onKeyDown={e => e.key === 'Enter' && handleDecrypt()} /></div>)}
-          {mode === 'symmetric' && (<div className="form-group"><label>{t('symmetricKey')}</label><input type="text" value={symmetricKey} onChange={e => setSymmetricKey(e.target.value)} placeholder={t('symmetricKeyPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleDecrypt()} /></div>)}
-          {mode === 'asymmetric' && (<div className="form-group"><label>{t('privateKey')}</label><textarea value={privateKey} onChange={e => setPrivateKey(e.target.value)} placeholder={t('privateKeyPlaceholder')} rows={4} onKeyDown={e => e.key === 'Enter' && handleDecrypt()} /></div>)}
-          {error && <div className="error-message">{error}</div>}
-          <button className="btn btn-primary btn-large" onClick={handleDecrypt} disabled={decrypting}>{decrypting ? t('decrypting') : t('decrypt')}</button>
+          {mode === 'password' && (<div className="form-group"><label htmlFor="decrypt-password">{t('password')}</label><input id="decrypt-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('decryptPassword')} autoComplete="new-password" onKeyDown={e => e.key === 'Enter' && handleDecrypt()} /></div>)}
+          {mode === 'symmetric' && (<div className="form-group"><label htmlFor="decrypt-key">{t('symmetricKey')}</label><input id="decrypt-key" type="text" value={symmetricKey} onChange={e => setSymmetricKey(e.target.value)} placeholder={t('symmetricKeyPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleDecrypt()} /></div>)}
+          {mode === 'asymmetric' && (<div className="form-group"><label htmlFor="decrypt-privkey">{t('privateKey')}</label><textarea id="decrypt-privkey" value={privateKey} onChange={e => setPrivateKey(e.target.value)} placeholder={t('privateKeyPlaceholder')} rows={4} /></div>)}
+          {error && <div className="error-message" role="alert">{error}</div>}
+          <button className="btn btn-primary btn-large" onClick={handleDecrypt} disabled={decrypting} aria-busy={decrypting}>{decrypting ? t('decrypting') : t('decrypt')}</button>
         </>)}
+        </>
+        )}
       </div>
     </div>
   )

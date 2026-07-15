@@ -5,10 +5,13 @@ const app = new Hono()
 
 app.route('/', api)
 
-// Global error handler — always return JSON, never HTML
+// Health check (used by monitoring and dev server)
+app.get('/health', (c) => c.json({ status: 'ok', version: '4.0' }))
+
+// Global error handler — never leak stack traces to client
 app.onError((err, c) => {
   console.error('Worker error:', err.message)
-  return c.json({ error: err.message || 'Internal error' }, 500)
+  return c.json({ error: 'Internal error' }, 500)
 })
 
 export default app

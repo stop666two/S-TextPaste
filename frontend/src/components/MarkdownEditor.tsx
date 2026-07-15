@@ -64,6 +64,7 @@ export default function MarkdownEditor({
           extensions={[markdown()]}
           onChange={onChange}
           theme={oneDark}
+          placeholder={t('writeMarkdown')}
           basicSetup={{
             lineNumbers: true,
             highlightActiveLineGutter: true,

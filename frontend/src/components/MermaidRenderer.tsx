@@ -10,7 +10,8 @@ export default function MermaidRenderer({ code }: Props) {
   useEffect(() => {
     if (!ref.current || !code) return
     import('mermaid').then(async (m) => {
-      m.default.initialize({ startOnLoad: false })
+      const isDark = document.documentElement.classList.contains('dark')
+      m.default.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' })
       try {
         const { svg } = await m.default.render(`mermaid-${Date.now()}`, code)
         ref.current!.innerHTML = svg

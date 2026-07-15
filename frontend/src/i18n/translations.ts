@@ -36,8 +36,8 @@ export const en = {
   confirmPassword: 'Confirm Password',
   passwordHint: 'Password Hint (optional)',
   passwordHintPlaceholder: 'A reminder for your password...',
-  postQuantum: 'Post-Quantum Encryption (Kyber-1024)',
-  postQuantumDesc: 'Enable dual-envelope encryption with NIST-standard Kyber-1024',
+  postQuantum: 'Double Envelope Encryption',
+  postQuantumDesc: 'Enable dual-layer AES-256-GCM encryption for enhanced security',
   enterPassword: 'Enter password...',
   enterConfirmPassword: 'Confirm password...',
 
@@ -70,7 +70,7 @@ export const en = {
   customIdPlaceholder: 'e.g., my-secret-note',
 
   // Create page
-  creating: 'Creating encrypted paste...',
+  creating: 'Encrypting & creating...',
   pasteCreated: 'Paste Created Successfully!',
   pasteUrl: 'Share URL',
   deleteToken: 'Delete Token',
@@ -95,12 +95,17 @@ export const en = {
   securityDashboard: 'Security Dashboard',
   encryptionAlgorithm: 'Encryption Algorithm',
   keyStrength: 'Key Strength',
-  quantumSafe: 'Quantum Safe',
+  encryptionLayers: 'Encryption Layers',
+  singleEnvelope: 'Single Layer',
+  doubleEnvelope: 'Double Layer',
   yes: 'Yes',
   no: 'No',
   encryptionMode_label: 'Encryption Mode',
   dataIntegrity: 'Data Integrity',
   verified: 'Verified',
+  notAvailable: 'N/A',
+  expiresAt: 'Expires At',
+  views: 'Views',
 
   // Security levels
   secure: 'Secure',
@@ -116,6 +121,26 @@ export const en = {
   networkError: 'Network error, please try again',
   pasteDeleted: 'Paste deleted successfully',
   linkCopied: 'Link copied to clipboard',
+
+  // Asymmetric
+  privateKeySaved: 'PRIVATE KEY - Save this file!',
+  privateKeySaveWarning: 'WARNING: This private key is generated in your browser and is shown only once. Save it securely before leaving this page. Without it, your paste cannot be decrypted.',
+
+  // Notices
+  freeNotice: 'Free & Open Source:',
+  freeNoticeDesc: 'S-TextPaste is completely free. Resale is strictly prohibited. Do NOT store important data. See Disclaimer for details.',
+
+  // Shortcuts
+  ctrlEnterHint: 'Ctrl+Enter to create',
+
+  // Disclaimer
+  disagree: 'I Disagree',
+  disclaimerRequired: 'You must agree to the terms to use this service.',
+
+  // Accessibility
+  skipToContent: 'Skip to content',
+  switchDark: 'Switch to dark mode',
+  switchLight: 'Switch to light mode',
 };
 
 export const zh = {
@@ -156,8 +181,8 @@ export const zh = {
   confirmPassword: '确认密码',
   passwordHint: '密码提示（可选）',
   passwordHintPlaceholder: '帮助您记住密码的提示...',
-  postQuantum: '后量子加密（Kyber-1024）',
-  postQuantumDesc: '启用双信封加密，采用 NIST 标准 Kyber-1024',
+  postQuantum: '双信封加密',
+  postQuantumDesc: '启用双层 AES-256-GCM 加密以增强安全性',
   enterPassword: '输入密码...',
   enterConfirmPassword: '确认密码...',
 
@@ -190,7 +215,7 @@ export const zh = {
   customIdPlaceholder: '例如：my-secret-note',
 
   // Create page
-  creating: '正在创建加密粘贴...',
+  creating: '正在加密并创建...',
   pasteCreated: '粘贴创建成功！',
   pasteUrl: '分享链接',
   deleteToken: '删除令牌',
@@ -215,12 +240,17 @@ export const zh = {
   securityDashboard: '安全性仪表盘',
   encryptionAlgorithm: '加密算法',
   keyStrength: '密钥强度',
-  quantumSafe: '量子安全',
+  encryptionLayers: '加密层数',
+  singleEnvelope: '单层',
+  doubleEnvelope: '双层',
   yes: '是',
   no: '否',
   encryptionMode_label: '加密模式',
   dataIntegrity: '数据完整性',
   verified: '已验证',
+  notAvailable: '不可用',
+  expiresAt: '过期时间',
+  views: '浏览次数',
 
   // Security levels
   secure: '安全',
@@ -236,4 +266,24 @@ export const zh = {
   networkError: '网络错误，请稍后重试',
   pasteDeleted: '粘贴删除成功',
   linkCopied: '链接已复制到剪贴板',
+
+  // Asymmetric
+  privateKeySaved: '私钥 - 请保存此文件！',
+  privateKeySaveWarning: '警告：此私钥在您的浏览器中生成，仅显示一次。请在离开页面前安全保存。没有私钥将无法解密您的粘贴。',
+
+  // Notices
+  freeNotice: '免费开源声明：',
+  freeNoticeDesc: 'S-TextPaste 完全免费，严禁倒卖。请勿存储重要数据。详见免责声明。',
+
+  // Shortcuts
+  ctrlEnterHint: 'Ctrl+Enter 创建',
+
+  // Disclaimer
+  disagree: '不同意',
+  disclaimerRequired: '您必须同意条款才能使用本服务。',
+
+  // Accessibility
+  skipToContent: '跳转到内容',
+  switchDark: '切换到深色模式',
+  switchLight: '切换到浅色模式',
 };

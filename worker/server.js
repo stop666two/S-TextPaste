@@ -21,6 +21,13 @@ function sha256(str) {
   return crypto.createHash('sha256').update(str).digest('hex')
 }
 
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) return false
+  let result = 0
+  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return result === 0
+}
+
 function generateToken() {
   return crypto.randomBytes(32).toString('hex')
 }
@@ -28,14 +35,13 @@ function generateToken() {
 function generateId(len = 32) {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'
   const mask = 63
-  const bytes = crypto.randomBytes(len * 2)
   let id = ''
-  let i = 0
   while (id.length < len) {
-    const r = bytes[i] & mask
-    if (r < chars.length) id += chars[r]
-    i++
-    if (i >= bytes.length) { bytes.fill(0); crypto.randomBytes(len * 2).copy(bytes); i = 0 }
+    const bytes = crypto.randomBytes(len * 2)
+    for (let i = 0; i < bytes.length && id.length < len; i++) {
+      const r = bytes[i] & mask
+      if (r < chars.length) id += chars[r]
+    }
   }
   return id
 }
@@ -43,7 +49,13 @@ function generateId(len = 32) {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = ''
-    req.on('data', chunk => { body += chunk })
+    let size = 0
+    const MAX_BODY = 5 * 1024 * 1024
+    req.on('data', chunk => {
+      size += chunk.length
+      if (size > MAX_BODY) { req.destroy(); reject(new Error('Request body too large')) }
+      body += chunk
+    })
     req.on('end', () => {
       try {
         resolve(body ? JSON.parse(body) : {})
@@ -66,16 +78,33 @@ function jsonResponse(res, data, status = 200) {
   res.end(JSON.stringify(data))
 }
 
+// Periodic cleanup of stale rate limit entries and expired pastes
+function cleanupStaleData() {
+  const now = Date.now()
+  // Clean rate limit entries
+  const cutoff = now - RATE_WINDOW * 2
+  for (const [ip, entry] of rateLimit) {
+    if (entry.reset < cutoff) rateLimit.delete(ip)
+  }
+  // Clean expired pastes
+  for (const [id, paste] of pastes) {
+    if (paste.expires_at && now > paste.expires_at) pastes.delete(id)
+  }
+}
+setInterval(cleanupStaleData, 60000) // run every minute
+
 const server = http.createServer(async (req, res) => {
   // Rate limit check
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown'
   const now = Date.now()
-  const entry = rateLimit.get(ip) || { count: 0, reset: now + RATE_WINDOW }
-  if (now > entry.reset) { entry.count = 0; entry.reset = now + RATE_WINDOW }
-  entry.count++
-  rateLimit.set(ip, entry)
-  if (entry.count > RATE_MAX) {
-    return jsonResponse(res, { error: 'Too many requests' }, 429)
+  const entry = rateLimit.get(ip)
+  if (!entry || now > entry.reset) {
+    rateLimit.set(ip, { count: 1, reset: now + RATE_WINDOW })
+  } else {
+    entry.count++
+    if (entry.count > RATE_MAX) {
+      return jsonResponse(res, { error: 'Too many requests' }, 429)
+    }
   }
 
   // CORS preflight
@@ -101,7 +130,7 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      const id = custom_id || generateId(8)
+      const id = custom_id || generateId(32)
       if (pastes.has(id)) return jsonResponse(res, { error: 'ID already exists' }, 409)
 
       const token = generateToken()
@@ -196,7 +225,8 @@ const server = http.createServer(async (req, res) => {
       const paste = pastes.get(id)
       if (!paste) return jsonResponse(res, { error: 'Not found' }, 404)
 
-      if (sha256(token) !== paste.delete_token_hash) {
+      const tokenHash = sha256(token)
+      if (tokenHash.length !== paste.delete_token_hash.length || !constantTimeEqual(tokenHash, paste.delete_token_hash)) {
         return jsonResponse(res, { error: 'Invalid delete token' }, 401)
       }
 
@@ -214,7 +244,7 @@ const server = http.createServer(async (req, res) => {
 
   } catch (err) {
     console.error('Server error:', err.message)
-    jsonResponse(res, { error: err.message }, 500)
+    jsonResponse(res, { error: 'Internal server error' }, 500)
   }
 })
 

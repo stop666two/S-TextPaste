@@ -12,9 +12,9 @@ console.log('=== S-TextPaste Deploy to Cloudflare Workers ===\n')
 console.log('[1/2] Building...')
 execSync('node scripts/build.js', { cwd: ROOT, stdio: 'inherit' })
 
-// Step 2: Deploy
+// Step 2: Deploy (wrangler.toml is at project root)
 console.log('\n[2/2] Deploying to Cloudflare Workers...')
-execSync('npx wrangler deploy', { cwd: path.join(ROOT, 'worker'), stdio: 'inherit' })
+execSync('npx wrangler deploy', { cwd: ROOT, stdio: 'inherit' })
 
 console.log('\n  Deployment complete!')
 console.log('  Your S-TextPaste is now live on Cloudflare Workers.\n')

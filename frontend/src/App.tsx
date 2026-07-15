@@ -4,11 +4,13 @@ import CreatePage from './pages/CreatePage'
 import ReadPage from './pages/ReadPage'
 import ViewPage from './pages/ViewPage'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
 import './styles.css'
 
 export default function App() {
   return (
     <I18nProvider>
+      <ErrorBoundary>
       <BrowserRouter>
         <Layout>
           <Routes>
@@ -19,6 +21,7 @@ export default function App() {
           </Routes>
         </Layout>
       </BrowserRouter>
+      </ErrorBoundary>
     </I18nProvider>
   )
 }

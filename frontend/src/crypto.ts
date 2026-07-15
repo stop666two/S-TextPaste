@@ -75,6 +75,13 @@ export interface EncryptedPayload {
 }
 
 // ============ Encrypt / Decrypt - Password Mode ============
+/**
+ * 密码模式加密
+ * @param text 明文
+ * @param pw 密码
+ * @param doubleEnvelope 是否启用双信封（双层 AES-256-GCM）
+ * @param hint 密码提示（嵌入密文，不解密不可见）
+ */
 export async function encryptForPassword(text: string, pw: string, doubleEnvelope: boolean, hint?: string): Promise<EncryptedPayload> {
   const salt = crypto.getRandomValues(new Uint8Array(32))
   const pwBytes = tx(pw)
@@ -110,6 +117,10 @@ export async function encryptForPassword(text: string, pw: string, doubleEnvelop
   return po as unknown as EncryptedPayload
 }
 
+/**
+ * 密码模式解密
+ * 先验证 HMAC 完整性（防止篡改），再用 PBKDF2 派生密钥解密
+ */
 export async function decryptFromPassword(p: EncryptedPayload, pw: string): Promise<string> {
   const salt = b6d(p.s)
   const pwBytes = tx(pw)
@@ -134,6 +145,11 @@ export async function decryptFromPassword(p: EncryptedPayload, pw: string): Prom
 }
 
 // ============ Symmetric ============
+/**
+ * 对称密钥模式加密
+ * @param text 明文
+ * @param raw 用户提供的密钥（≥32 字节取前 32，不足自动补齐）
+ */
 export async function encryptForSymmetric(text: string, raw: Uint8Array): Promise<EncryptedPayload> {
   const salt = crypto.getRandomValues(new Uint8Array(32))
   const uk = raw.length >= 32 ? raw.slice(0, 32) : (() => { const p = new Uint8Array(32); p.set(raw); return p })()
@@ -152,6 +168,7 @@ export async function encryptForSymmetric(text: string, raw: Uint8Array): Promis
   return { v: '4.0', m: 'symmetric', s: b6e(salt), d: c, i, e: b6e(u8(ee)), j: b6e(iv3), f: b6e(u8(ed)), g: b6e(iv2), a: 'AES-256-GCM (Symmetric, PBKDF2)', q: true }
 }
 
+/** 对称密钥模式解密 */
 export async function decryptForSymmetric(p: EncryptedPayload, raw: Uint8Array): Promise<string> {
   const uk = raw.length >= 32 ? raw.slice(0, 32) : (() => { const pp = new Uint8Array(32); pp.set(raw); return pp })()
   if (!p.q) return await aesDecrypt(p.d, p.i, uk)
@@ -165,6 +182,11 @@ export async function decryptForSymmetric(p: EncryptedPayload, raw: Uint8Array):
 }
 
 // ============ Asymmetric ============
+/**
+ * 非对称模式加密
+ * @param text 明文
+ * @param pub RSA-OAEP 公钥（由 importPemPublicKey 导入）
+ */
 export async function encryptForAsymmetric(text: string, pub: CryptoKey): Promise<EncryptedPayload> {
   const dek: any = crypto.getRandomValues(new Uint8Array(32))
   const { c, i } = await aesEncrypt(text, dek)
@@ -175,6 +197,7 @@ export async function encryptForAsymmetric(text: string, pub: CryptoKey): Promis
   return { v: '4.0', m: 'asymmetric', s: '', d: c, i, e: b6e(u8(ed)), j: i, p: fp, a: 'RSA-OAEP-AES-256-GCM', q: false }
 }
 
+/** 非对称模式解密 */
 export async function decryptFromAsymmetric(p: EncryptedPayload, priv: CryptoKey): Promise<string> {
   return await aesDecrypt(p.d, p.i, u8(await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, priv, bs(b6d(p.e!)))))
 }

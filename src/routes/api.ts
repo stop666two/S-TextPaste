@@ -90,7 +90,6 @@ app.use('/api/*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
   c.header('X-Frame-Options', 'DENY')
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
-  c.header('Permissions-Policy', 'interest-cohort=(), run-ad-auction=()')
 })
 
 app.post('/api/paste', async (c) => {
